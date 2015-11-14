@@ -1,5 +1,12 @@
 ;(function(window, document) {
 
+  var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    
+  function escapeHtml(text) {
+
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
+
   //////////////////////////////////////////////////////////////////////
   //
   // Shims for IE < 9
@@ -26,7 +33,7 @@
   // Get user elements we need
   //
 
-  var markdownEl = document.getElementsByTagName('xmp')[0] || document.getElementsByTagName('textarea')[0],
+  var markdownEl = document.getElementsByTagName('div')[0] || document.getElementsByTagName('xmp')[0] || document.getElementsByTagName('textarea')[0],
       titleEl = document.getElementsByTagName('title')[0],
       scriptEls = document.getElementsByTagName('script'),
       navbarEl = document.getElementsByClassName('navbar')[0];
@@ -87,51 +94,62 @@
   // <body> stuff
   //
 
-  var markdown = markdownEl.textContent || markdownEl.innerText;
+  function render( markdown, el ){
+      var newNode = document.createElement('div');
+      newNode.className = 'container';
+      newNode.id = 'content';
+      document.body.replaceChild(newNode, el);
 
-  var newNode = document.createElement('div');
-  newNode.className = 'container';
-  newNode.id = 'content';
-  document.body.replaceChild(newNode, markdownEl);
+      // Insert navbar if there's none
+      var newNode = document.createElement('div');
+      newNode.className = 'navbar navbar-fixed-top';
+      if (!navbarEl && titleEl) {
+        newNode.innerHTML = '<div class="navbar-inner"> <div class="container"> <div id="headline" class="brand"> </div> </div> </div>';
+        document.body.insertBefore(newNode, document.body.firstChild);
+        var title = titleEl.innerHTML;
+        var headlineEl = document.getElementById('headline');
+        if (headlineEl)
+          headlineEl.innerHTML = title;
+      }
 
-  // Insert navbar if there's none
-  var newNode = document.createElement('div');
-  newNode.className = 'navbar navbar-fixed-top';
-  if (!navbarEl && titleEl) {
-    newNode.innerHTML = '<div class="navbar-inner"> <div class="container"> <div id="headline" class="brand"> </div> </div> </div>';
-    document.body.insertBefore(newNode, document.body.firstChild);
-    var title = titleEl.innerHTML;
-    var headlineEl = document.getElementById('headline');
-    if (headlineEl)
-      headlineEl.innerHTML = title;
+      //////////////////////////////////////////////////////////////////////
+      //
+      // Markdown!
+      //
+
+      // Generate Markdown
+      var html = marked( escapeHtml( markdown ) );
+      document.getElementById('content').innerHTML = html;
+
+      // Prettify
+      var codeEls = document.getElementsByTagName('code');
+      for (var i=0, ii=codeEls.length; i<ii; i++) {
+        var codeEl = codeEls[i];
+        var lang = codeEl.className;
+        codeEl.className = 'prettyprint lang-' + lang;
+      }
+      prettyPrint();
+
+      // Style tables
+      var tableEls = document.getElementsByTagName('table');
+      for (var i=0, ii=tableEls.length; i<ii; i++) {
+        var tableEl = tableEls[i];
+        tableEl.className = 'table table-striped table-bordered';
+      }
+
+      // All done - show body
+      document.body.style.display = '';
   }
 
-  //////////////////////////////////////////////////////////////////////
-  //
-  // Markdown!
-  //
+  var markdownSrc = markdownEl.getAttribute( 'src' );
 
-  // Generate Markdown
-  var html = marked(markdown);
-  document.getElementById('content').innerHTML = html;
-
-  // Prettify
-  var codeEls = document.getElementsByTagName('code');
-  for (var i=0, ii=codeEls.length; i<ii; i++) {
-    var codeEl = codeEls[i];
-    var lang = codeEl.className;
-    codeEl.className = 'prettyprint lang-' + lang;
+  if( markdownSrc )
+  {
+    $.get( markdownSrc, function( markdown ){ render( markdown, markdownEl ); });
   }
-  prettyPrint();
-
-  // Style tables
-  var tableEls = document.getElementsByTagName('table');
-  for (var i=0, ii=tableEls.length; i<ii; i++) {
-    var tableEl = tableEls[i];
-    tableEl.className = 'table table-striped table-bordered';
+  else
+  {
+    render( markdownEl.textContent || markdownEl.innerText, markdownEl );
   }
-
-  // All done - show body
-  document.body.style.display = '';
 
 })(window, document);
